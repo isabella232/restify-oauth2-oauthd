@@ -1,15 +1,34 @@
 {
-    "name": "restify-oauth2",
-    "description": "A simple OAuth 2 endpoint for Restify",
-    "keywords": ["restify", "oauth", "oauth2", "rest", "authentication", "api"],
+    "name": "restify-oauth2-oauthd",
+    "description": "A simple OAuth 2 endpoint for Restify + OAuth.io modifications",
+    "keywords": [
+        "restify",
+        "oauth",
+        "oauthd",
+        "oauth.io",
+        "oauth2",
+        "rest",
+        "authentication",
+        "api"
+    ],
     "version": "2.1.0",
-    "author": "Domenic Denicola <domenic@domenicdenicola.com> (http://domenicdenicola.com)",
-    "license": "WTFPL",
+    "author": {
+        "name": "Domenic Denicola",
+        "email": "domenic@domenicdenicola.com",
+        "url": "http://domenicdenicola.com"
+    },
+    "contributors": [
+        "OAuth.io Team <team@oauth.io> (https://oauth.io/)"
+    ],
     "repository": {
         "type": "git",
-        "url": "git://github.com/domenic/restify-oauth2.git"
+        "url": "git@github.com:oauth-io/restify-oauth2-oauthd"
     },
-    "bugs": "http://github.com/domenic/restify-oauth2/issues",
+    "bugs": {
+        "url": "http://github.com/oauth-io/restify-oauth2-oauthd/issues",
+        "email": "team+bugs@oauth.io"
+    },
+    "license": "WTFPL",
     "main": "lib/index.js",
     "scripts": {
         "test": "npm run test-ropc-unit && npm run test-cc-unit && npm run test-ropc-integration && npm run test-cc-integration",
