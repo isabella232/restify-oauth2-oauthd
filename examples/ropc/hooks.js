@@ -23,22 +23,24 @@ function generateToken(data) {
     return sha256.update(data).digest("base64");
 }
 
-exports.validateClient = function (clientId, clientSecret, cb) {
+exports.validateClient = function (credentials, req, cb) {
     // Call back with `true` to signal that the client is valid, and `false` otherwise.
     // Call back with an error if you encounter an internal server error situation while trying to validate.
 
-    var isValid = _.has(database.clients, clientId) && database.clients[clientId].secret === clientSecret;
+    var isValid = _.has(database.clients, credentials.clientId) &&
+                  database.clients[credentials.clientId].secret === credentials.clientSecret;
     cb(null, isValid);
 };
 
-exports.grantUserToken = function (username, password, cb) {
-    var isValid = _.has(database.users, username) && database.users[username].password === password;
+exports.grantUserToken = function (credentials, req, cb) {
+    var isValid = _.has(database.users, credentials.username) &&
+                  database.users[credentials.username].password === credentials.password;
     if (isValid) {
         // If the user authenticates, generate a token for them and store it so `exports.authenticateToken` below
         // can look it up later.
 
-        var token = generateToken(username + ":" + password);
-        database.tokensToUsernames[token] = username;
+        var token = generateToken(credentials.username + ":" + credentials.password);
+        database.tokensToUsernames[token] = credentials.username;
 
         // Call back with the token so Restify-OAuth2 can pass it on to the client.
         return cb(null, token);
@@ -49,12 +51,12 @@ exports.grantUserToken = function (username, password, cb) {
     cb(null, false);
 };
 
-exports.authenticateToken = function (token, cb) {
+exports.authenticateToken = function (token, req, cb) {
     if (_.has(database.tokensToUsernames, token)) {
-        // If the token authenticates, call back with the corresponding username. Restify-OAuth2 will put it in the
-        // request's `username` property.
-        var username = database.tokensToUsernames[token];
-        return cb(null, username);
+        // If the token authenticates, set the corresponding property on the request, and call back with `true`.
+        // The routes can now use these properties to check if the request is authorized and authenticated.
+        req.username = database.tokensToUsernames[token];
+        return cb(null, true);
     }
 
     // If the token does not authenticate, call back with `false` to signal that.

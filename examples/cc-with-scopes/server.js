@@ -8,7 +8,7 @@ var hooks = require("./hooks");
 // resources, but you could use any JSON linking format, or XML, or even just Link headers.
 
 var server = restify.createServer({
-    name: "Example Restify-OAuth2 Resource Owner Password Credentials Server",
+    name: "Example Restify-OAuth2 Client Credentials Server",
     version: require("../../package.json").version,
     formatters: {
         "application/hal+json": function (req, res, body) {
@@ -21,12 +21,13 @@ var RESOURCES = Object.freeze({
     INITIAL: "/",
     TOKEN: "/token",
     PUBLIC: "/public",
-    SECRET: "/secret"
+    SECRET: "/secret",
+    SCOPED: "/scoped"
 });
 
 server.use(restify.authorizationParser());
 server.use(restify.bodyParser({ mapParams: false }));
-restifyOAuth2.ropc(server, { tokenEndpoint: RESOURCES.TOKEN, hooks: hooks });
+restifyOAuth2.cc(server, { tokenEndpoint: RESOURCES.TOKEN, hooks: hooks });
 
 
 
@@ -38,12 +39,16 @@ server.get(RESOURCES.INITIAL, function (req, res) {
         }
     };
 
-    if (req.username) {
+    if (req.clientId) {
         response._links["http://rel.example.com/secret"] = { href: RESOURCES.SECRET };
+
+        if (req.scopesGranted.indexOf("two") !== -1) {
+            response._links["http://rel.example.com/scoped"] = { href: RESOURCES.SCOPED };
+        }
     } else {
         response._links["oauth2-token"] = {
             href: RESOURCES.TOKEN,
-            "grant-types": "password",
+            "grant-types": "client_credentials",
             "token-types": "bearer"
         };
     }
@@ -57,19 +62,40 @@ server.get(RESOURCES.PUBLIC, function (req, res) {
         "public resource": "is public",
         "it's not even": "a linked HAL resource",
         "just plain": "application/json",
-        "personalized message": req.username ? "hi, " + req.username + "!" : "hello stranger!"
+        "personalized message": req.clientId ? "hi, " + req.clientId + "!" : "hello stranger!"
     });
 });
 
 server.get(RESOURCES.SECRET, function (req, res) {
-    if (!req.username) {
+    if (!req.clientId) {
         return res.sendUnauthenticated();
     }
 
     var response = {
-        "users with a token": "have access to this secret data",
+        "clients with a token": "have access to this secret data",
         _links: {
             self: { href: RESOURCES.SECRET },
+            parent: { href: RESOURCES.INITIAL }
+        }
+    };
+
+    res.contentType = "application/hal+json";
+    res.send(response);
+});
+
+server.get(RESOURCES.SCOPED, function (req, res) {
+    if (!req.clientId) {
+        return res.sendUnauthenticated();
+    }
+
+    if (req.scopesGranted.indexOf("two") === -1) {
+        return res.sendUnauthorized();
+    }
+
+    var response = {
+        "clients with a token that is scoped correctly": "have access to this scoped data",
+        _links: {
+            self: { href: RESOURCES.SCOPED },
             parent: { href: RESOURCES.INITIAL }
         }
     };

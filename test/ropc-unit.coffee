@@ -13,50 +13,63 @@ tokenExpirationTime = 12345
 
 Assertion.addMethod("unauthorized", (message, options) ->
     expectedLink = '<' + tokenEndpoint + '>; rel="oauth2-token"; grant-types="password"; token-types="bearer"'
-    expectedWwwAuthenticate = 'Bearer realm="' +  wwwAuthenticateRealm + '"'
+    expectedWwwAuthenticate = 'Bearer realm="' + wwwAuthenticateRealm + '"'
 
     if not options?.noWwwAuthenticateErrors
         expectedWwwAuthenticate += ', error="invalid_token", error_description="' + message + '"'
 
+    spyToTest = if options?.send then @_obj.send else @_obj.nextSpy
+
     @_obj.header.should.have.been.calledWith("WWW-Authenticate", expectedWwwAuthenticate)
     @_obj.header.should.have.been.calledWith("Link", expectedLink)
+    spyToTest.should.have.been.calledOnce
+    spyToTest.should.have.been.calledWith(sinon.match.instanceOf(restify.UnauthorizedError))
+    spyToTest.should.have.been.calledWith(sinon.match.has("message", sinon.match(message)))
+)
+
+Assertion.addMethod("unauthenticated", (message) ->
+    expectedLink = '<' + tokenEndpoint + '>; rel="oauth2-token"; grant-types="password"; token-types="bearer"'
+
+    @_obj.header.should.have.been.calledWith("Link", expectedLink)
     @_obj.send.should.have.been.calledOnce
-    @_obj.send.should.have.been.calledWith(sinon.match.instanceOf(restify.UnauthorizedError))
+    @_obj.send.should.have.been.calledWith(sinon.match.instanceOf(restify.ForbiddenError))
     @_obj.send.should.have.been.calledWith(sinon.match.has("message", sinon.match(message)))
 )
 
 Assertion.addMethod("bad", (message) ->
     expectedLink = '<' + tokenEndpoint + '>; rel="oauth2-token"; grant-types="password"; token-types="bearer"'
-    expectedWwwAuthenticate = 'Bearer realm="' +  wwwAuthenticateRealm + '", error="invalid_request", ' +
+    expectedWwwAuthenticate = 'Bearer realm="' + wwwAuthenticateRealm + '", error="invalid_request", ' +
                               'error_description="' + message + '"'
 
     @_obj.header.should.have.been.calledWith("WWW-Authenticate", expectedWwwAuthenticate)
     @_obj.header.should.have.been.calledWith("Link", expectedLink)
-    @_obj.send.should.have.been.calledOnce
-    @_obj.send.should.have.been.calledWith(sinon.match.instanceOf(restify.BadRequestError))
-    @_obj.send.should.have.been.calledWith(sinon.match.has("message", sinon.match(message)))
+    @_obj.nextSpy.should.have.been.calledOnce
+    @_obj.nextSpy.should.have.been.calledWith(sinon.match.instanceOf(restify.BadRequestError))
+    @_obj.nextSpy.should.have.been.calledWith(sinon.match.has("message", sinon.match(message)))
 )
 
 Assertion.addMethod("oauthError", (errorClass, errorType, errorDescription) ->
     desiredBody = { error: errorType, error_description: errorDescription }
-    @_obj.send.should.have.been.calledOnce
-    @_obj.send.should.have.been.calledWith(sinon.match.instanceOf(restify[errorClass + "Error"]))
-    @_obj.send.should.have.been.calledWith(sinon.match.has("message", errorDescription))
-    @_obj.send.should.have.been.calledWith(sinon.match.has("body", desiredBody))
+    @_obj.nextSpy.should.have.been.calledOnce
+    @_obj.nextSpy.should.have.been.calledWith(sinon.match.instanceOf(restify[errorClass + "Error"]))
+    @_obj.nextSpy.should.have.been.calledWith(sinon.match.has("message", errorDescription))
+    @_obj.nextSpy.should.have.been.calledWith(sinon.match.has("body", desiredBody))
 )
 
 beforeEach ->
     @req = { pause: sinon.spy(), resume: sinon.spy(), username: "anonymous", authorization: {} }
     @res = { header: sinon.spy(), send: sinon.spy() }
-    @next = sinon.spy((x) => if x? then @res.send(x))
+    @tokenNext = sinon.spy()
+    @pluginNext = sinon.spy()
 
     @server =
-        post: sinon.spy((path, handler) => @postToTokenEndpoint = => handler(@req, @res, @next))
-        use: (plugin) => plugin(@req, @res, @next)
+        post: sinon.spy((path, handler) => @postToTokenEndpoint = => handler(@req, @res, @tokenNext))
+        use: (plugin) => plugin(@req, @res, @pluginNext)
 
     @authenticateToken = sinon.stub()
     @validateClient = sinon.stub()
     @grantUserToken = sinon.stub()
+    @grantScopes = sinon.stub()
 
     options = {
         tokenEndpoint
@@ -69,7 +82,20 @@ beforeEach ->
         }
     }
 
+    optionsWithScope = {
+        tokenEndpoint
+        wwwAuthenticateRealm
+        tokenExpirationTime
+        hooks: {
+            @authenticateToken
+            @validateClient
+            @grantUserToken
+            @grantScopes
+        }
+    }
+
     @doIt = => restifyOAuth2.ropc(@server, options)
+    @doItWithScopes = => restifyOAuth2.ropc(@server, optionsWithScope)
 
 describe "Resource Owner Password Credentials flow", ->
     it "should set up the token endpoint", ->
@@ -81,6 +107,7 @@ describe "Resource Owner Password Credentials flow", ->
         beforeEach ->
             @req.method = "POST"
             @req.path = => tokenEndpoint
+            @res.nextSpy = @tokenNext
 
             baseDoIt = @doIt
             @doIt = =>
@@ -93,27 +120,27 @@ describe "Resource Owner Password Credentials flow", ->
             describe "that has grant_type=password", ->
                 beforeEach -> @req.body.grant_type = "password"
 
-                describe "and has a username field", ->
+                describe "with a basic access authentication header", ->
                     beforeEach ->
-                        @username = "username123"
-                        @req.body.username = @username
+                        [@clientId, @clientSecret] = ["clientId123", "clientSecret456"]
+                        @req.authorization =
+                            scheme: "Basic"
+                            basic: { username: @clientId, password: @clientSecret }
 
-                    describe "and a password field", ->
+                    describe "and has a username field", ->
                         beforeEach ->
-                            @password = "password456"
-                            @req.body.password = @password
+                            @username = "username123"
+                            @req.body.username = @username
 
-                        describe "with a basic access authentication header", ->
+                        describe "and a password field", ->
                             beforeEach ->
-                                [@clientId, @clientSecret] = ["clientId123", "clientSecret456"]
-                                @req.authorization =
-                                    scheme: "Basic"
-                                    basic: { username: @clientId, password: @clientSecret }
+                                @password = "password456"
+                                @req.body.password = @password
 
                             it "should validate the client, with client ID/secret from the basic authentication", ->
                                 @doIt()
 
-                                @validateClient.should.have.been.calledWith(@clientId, @clientSecret)
+                                @validateClient.should.have.been.calledWith({ @clientId, @clientSecret }, @req)
 
                             describe "when `validateClient` calls back with `true`", ->
                                 beforeEach -> @validateClient.yields(null, true)
@@ -121,38 +148,127 @@ describe "Resource Owner Password Credentials flow", ->
                                 it "should use the username and password body fields to grant a token", ->
                                     @doIt()
 
-                                    @grantUserToken.should.have.been.calledWith(@username, @password)
+                                    @grantUserToken.should.have.been.calledWith(
+                                        { @clientId, @clientSecret, @username, @password },
+                                        @req
+                                    )
 
                                 describe "when `grantUserToken` calls back with a token", ->
                                     beforeEach ->
                                         @token = "token123"
                                         @grantUserToken.yields(null, @token)
 
-                                    it "should send a response with access_token, token_type, and expires_in set", ->
-                                        @doIt()
+                                    describe "and a `grantScopes` hook is defined", ->
+                                        beforeEach ->
+                                            baseDoIt = @doItWithScopes
+                                            @doIt = =>
+                                                baseDoIt()
+                                                @postToTokenEndpoint()
+                                            @requestedScopes = ["one", "two"]
+                                            @req.body.scope = @requestedScopes.join(" ")
 
-                                        @res.send.should.have.been.calledWith(
-                                            access_token: @token,
-                                            token_type: "Bearer"
-                                            expires_in: tokenExpirationTime
-                                        )
+                                        it "should use credentials and requested scopes to grant scopes", ->
+                                            @doIt()
+
+                                            @grantScopes.should.have.been.calledWith(
+                                                { @clientId, @clientSecret, @username, @password, @token },
+                                                @requestedScopes
+                                            )
+
+                                        describe "when `grantScopes` calls back with an array of granted scopes", ->
+                                            beforeEach ->
+                                                @grantedScopes = ["three"]
+                                                @grantScopes.yields(null, @grantedScopes)
+
+                                            it "should send a response with access_token, token_type, scope, and " +
+                                               "expires_in set, where scope is limited to the granted scopes", ->
+                                                @doIt()
+
+                                                @res.send.should.have.been.calledWith(
+                                                    access_token: @token,
+                                                    token_type: "Bearer"
+                                                    expires_in: tokenExpirationTime,
+                                                    scope: @grantedScopes.join(" ")
+                                                )
+
+                                            it "should call `next`", ->
+                                                @doIt()
+
+                                                @tokenNext.should.have.been.calledWithExactly()
+
+                                        describe "when `grantScopes` calls back with `true`", ->
+                                            beforeEach -> @grantScopes.yields(null, true)
+
+                                            it "should send a response with access_token, token_type, scope, and " +
+                                               "expires_in set, where scope is the same as the requested scopes", ->
+                                                @doIt()
+
+                                                @res.send.should.have.been.calledWith(
+                                                    access_token: @token,
+                                                    token_type: "Bearer"
+                                                    expires_in: tokenExpirationTime,
+                                                    scope: @requestedScopes.join(" ")
+                                                )
+
+                                            it "should call `next`", ->
+                                                @doIt()
+
+                                                @tokenNext.should.have.been.calledWithExactly()
+
+                                        describe "when `grantScopes` calls back with `false`", ->
+                                            beforeEach -> @grantScopes.yields(null, false)
+
+                                            it "should send a 400 response with error_type=invalid_scope", ->
+                                                @doIt()
+
+                                                message = "The requested scopes are invalid, unknown, or exceed the " +
+                                                          "set of scopes appropriate for these credentials."
+                                                @res.should.be.an.oauthError("BadRequest", "invalid_scope", message)
+
+                                        describe "when `grantScopes` calls back with an error", ->
+                                            beforeEach ->
+                                                @error = new Error("Bad things happened, internally.")
+                                                @grantScopes.yields(@error)
+
+                                            it "should call `next` with that error", ->
+                                                @doIt()
+
+                                                @tokenNext.should.have.been.calledWithExactly(@error)
+
+                                    describe "and a `grantScopes` hook is not defined", ->
+                                        beforeEach -> @grantScopes = undefined
+
+                                        it "should send a response with access_token, token_type, and expires_in " +
+                                           "set", ->
+                                            @doIt()
+
+                                            @res.send.should.have.been.calledWith(
+                                                access_token: @token,
+                                                token_type: "Bearer"
+                                                expires_in: tokenExpirationTime
+                                            )
+
+                                        it "should call `next`", ->
+                                            @doIt()
+
+                                            @tokenNext.should.have.been.calledWithExactly()
 
                                 describe "when `grantUserToken` calls back with `false`", ->
                                     beforeEach -> @grantUserToken.yields(null, false)
 
-                                    it "should send a 401 response with error_type=invalid_client", ->
+                                    it "should send a 401 response with error_type=invalid_grant", ->
                                         @doIt()
 
-                                        @res.should.be.an.oauthError("Unauthorized", "invalid_client",
+                                        @res.should.be.an.oauthError("Unauthorized", "invalid_grant",
                                                                      "Username and password did not authenticate.")
 
                                 describe "when `grantUserToken` calls back with `null`", ->
                                     beforeEach -> @grantUserToken.yields(null, null)
 
-                                    it "should send a 401 response with error_type=invalid_client", ->
+                                    it "should send a 401 response with error_type=invalid_grant", ->
                                         @doIt()
 
-                                        @res.should.be.an.oauthError("Unauthorized", "invalid_client",
+                                        @res.should.be.an.oauthError("Unauthorized", "invalid_grant",
                                                                      "Username and password did not authenticate.")
 
                                 describe "when `grantUserToken` calls back with an error", ->
@@ -163,7 +279,7 @@ describe "Resource Owner Password Credentials flow", ->
                                     it "should call `next` with that error", ->
                                         @doIt()
 
-                                        @next.should.have.been.calledWithExactly(@error)
+                                        @tokenNext.should.have.been.calledWithExactly(@error)
 
                             describe "when `validateClient` calls back with `false`", ->
                                 beforeEach -> @validateClient.yields(null, false)
@@ -192,19 +308,21 @@ describe "Resource Owner Password Credentials flow", ->
                                 it "should call `next` with that error", ->
                                     @doIt()
 
-                                    @next.should.have.been.calledWithExactly(@error)
+                                    @tokenNext.should.have.been.calledWithExactly(@error)
 
                                 it "should not call the `grantUserToken` hook", ->
                                     @doIt()
 
                                     @grantUserToken.should.not.have.been.called
 
-                        describe "without an authorization header", ->
+                        describe "that has no password field", ->
+                            beforeEach -> @req.body.password = null
+
                             it "should send a 400 response with error_type=invalid_request", ->
                                 @doIt()
 
                                 @res.should.be.an.oauthError("BadRequest", "invalid_request",
-                                                             "Must include a basic access authentication header.")
+                                                             "Must specify password field.")
 
                             it "should not call the `validateClient` or `grantUserToken` hooks", ->
                                 @doIt()
@@ -212,32 +330,13 @@ describe "Resource Owner Password Credentials flow", ->
                                 @validateClient.should.not.have.been.called
                                 @grantUserToken.should.not.have.been.called
 
-                        describe "with an authorization header that does not contain basic access credentials", ->
-                            beforeEach ->
-                                @req.authorization =
-                                    scheme: "Bearer"
-                                    credentials: "asdf"
-
-                            it "should send a 400 response with error_type=invalid_request", ->
-                                @doIt()
-
-                                @res.should.be.an.oauthError("BadRequest", "invalid_request",
-                                                             "Must include a basic access authentication header.")
-
-                            it "should not call the `validateClient` or `grantUserToken` hooks", ->
-                                @doIt()
-
-                                @validateClient.should.not.have.been.called
-                                @grantUserToken.should.not.have.been.called
-
-                    describe "that has no password field", ->
-                        beforeEach -> @req.body.password = null
+                    describe "that has no username field", ->
+                        beforeEach -> @req.body.username = null
 
                         it "should send a 400 response with error_type=invalid_request", ->
                             @doIt()
 
-                            @res.should.be.an.oauthError("BadRequest", "invalid_request",
-                                                         "Must specify password field.")
+                            @res.should.be.an.oauthError("BadRequest", "invalid_request", "Must specify username field.")
 
                         it "should not call the `validateClient` or `grantUserToken` hooks", ->
                             @doIt()
@@ -245,13 +344,30 @@ describe "Resource Owner Password Credentials flow", ->
                             @validateClient.should.not.have.been.called
                             @grantUserToken.should.not.have.been.called
 
-                describe "that has no username field", ->
-                    beforeEach -> @req.body.username = null
+                describe "without an authorization header", ->
+                    it "should send a 400 response with error_type=invalid_request", ->
+                        @doIt()
+
+                        @res.should.be.an.oauthError("BadRequest", "invalid_request",
+                                                     "Must include a basic access authentication header.")
+
+                    it "should not call the `validateClient` or `grantUserToken` hooks", ->
+                        @doIt()
+
+                        @validateClient.should.not.have.been.called
+                        @grantUserToken.should.not.have.been.called
+
+                describe "with an authorization header that does not contain basic access credentials", ->
+                    beforeEach ->
+                        @req.authorization =
+                            scheme: "Bearer"
+                            credentials: "asdf"
 
                     it "should send a 400 response with error_type=invalid_request", ->
                         @doIt()
 
-                        @res.should.be.an.oauthError("BadRequest", "invalid_request", "Must specify username field.")
+                        @res.should.be.an.oauthError("BadRequest", "invalid_request",
+                                                     "Must include a basic access authentication header.")
 
                     it "should not call the `validateClient` or `grantUserToken` hooks", ->
                         @doIt()
@@ -315,7 +431,9 @@ describe "Resource Owner Password Credentials flow", ->
                 @grantUserToken.should.not.have.been.called
 
     describe "For other requests", ->
-        beforeEach -> @req.path = => "/other-resource"
+        beforeEach ->
+            @req.path = => "/other-resource"
+            @res.nextSpy = @pluginNext
 
         describe "with an authorization header that contains a valid bearer token", ->
             beforeEach ->
@@ -326,19 +444,16 @@ describe "Resource Owner Password Credentials flow", ->
                 @doIt()
 
                 @req.pause.should.have.been.called
-                @authenticateToken.should.have.been.calledWith(@token)
+                @authenticateToken.should.have.been.calledWith(@token, @req)
 
-            describe "when the `authenticateToken` calls back with a username", ->
-                beforeEach ->
-                    @username = "user123"
-                    @authenticateToken.yields(null, @username)
+            describe "when the `authenticateToken` calls back with `true`", ->
+                beforeEach -> @authenticateToken.yields(null, true)
 
-                it "should resume the request, set the `username` property on the request, and call `next`", ->
+                it "should resume the request and call `next`", ->
                     @doIt()
 
                     @req.resume.should.have.been.called
-                    @req.should.have.property("username", @username)
-                    @next.should.have.been.calledWithExactly()
+                    @pluginNext.should.have.been.calledWithExactly()
 
             describe "when the `authenticateToken` calls back with `false`", ->
                 beforeEach -> @authenticateToken.yields(null, false)
@@ -371,7 +486,7 @@ describe "Resource Owner Password Credentials flow", ->
                     @doIt()
 
                     @req.resume.should.have.been.called
-                    @res.send.should.have.been.calledWith(@error)
+                    @pluginNext.should.have.been.calledWith(@error)
                     @res.header.should.not.have.been.called
 
         describe "without an authorization header", ->
@@ -381,7 +496,7 @@ describe "Resource Owner Password Credentials flow", ->
                 @doIt()
 
                 should.not.exist(@req.username)
-                @next.should.have.been.calledWithExactly()
+                @pluginNext.should.have.been.calledWithExactly()
 
         describe "with an authorization header that does not contain a bearer token", ->
             beforeEach ->
@@ -406,23 +521,48 @@ describe "Resource Owner Password Credentials flow", ->
 
                 @res.should.be.bad("Bearer token required. Follow the oauth2-token link to get one!")
 
-    describe "`res.sendUnauthorized`", ->
-        beforeEach -> @doIt()
+    describe "`res.sendUnauthenticated`", ->
+        beforeEach ->
+            @req.path = => "/other-resource"
+            @res.nextSpy = @pluginNext
+            @doIt()
 
         describe "with no arguments", ->
-            beforeEach -> @res.sendUnauthorized()
+            beforeEach -> @res.sendUnauthenticated()
 
             it "should send a 401 response with WWW-Authenticate (but with no error code) and Link headers, plus the " +
                "default message", ->
                 @res.should.be.unauthorized(
-                    "Authorization via bearer token required. Follow the oauth2-token link to get one!"
-                    noWwwAuthenticateErrors: true
+                    "Authentication via bearer token required. Follow the oauth2-token link to get one!"
+                    { noWwwAuthenticateErrors: true, send: true }
                 )
 
         describe "with a message passed", ->
             message = "You really should go get a bearer token"
-            beforeEach -> @res.sendUnauthorized(message)
+            beforeEach -> @res.sendUnauthenticated(message)
 
             it "should send a 401 response with WWW-Authenticate (but with no error code) and Link headers, plus the " +
                "specified message", ->
-                @res.should.be.unauthorized(message, noWwwAuthenticateErrors: true)
+                @res.should.be.unauthorized(message, { noWwwAuthenticateErrors: true, send: true })
+
+    describe "`res.sendUnauthorized`", ->
+        beforeEach ->
+            @req.path = => "/other-resource"
+            @res.nextSpy = @pluginNext
+            @doIt()
+
+        describe "with no arguments", ->
+            beforeEach -> @res.sendUnauthorized()
+
+            it "should send a 403 response with Link headers, plus the default message", ->
+                @res.should.be.unauthenticated(
+                    "Insufficient authorization. Follow the oauth2-token link to get a token with more authorization!"
+                )
+
+        describe "with a message passed", ->
+            message = "You really should go get a bearer token with more scopes"
+            beforeEach -> @res.sendUnauthorized(message)
+
+            it "should send a 403 response with WWW-Authenticate (but with no error code) and Link headers, plus the " +
+               "specified message", ->
+                @res.should.be.unauthenticated(message)

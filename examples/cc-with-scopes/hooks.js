@@ -5,10 +5,11 @@ var crypto = require("crypto");
 
 var database = {
     clients: {
-        officialApiClient: { secret: "C0FFEE" },
+        officialApiClient: { secret: "C0FFEE", scopesGranted: ["one:read", "two"] },
         unofficialClient: { secret: "DECAF" }
     },
-    tokensToClientIds: {}
+    tokensToClientIds: {},
+    tokensToScopes: {}
 };
 
 function generateToken(data) {
@@ -38,11 +39,25 @@ exports.grantClientToken = function (credentials, req, cb) {
     cb(null, false);
 };
 
+exports.grantScopes = function (credentials, scopesRequested, req, cb) {
+    // In this example, we will allow at most only the scopes defined in the database. We will not give an error if
+    // other scopes are requested, instead simply returning the allowed scopes.
+    var scopesGranted = _.intersection(scopesRequested, database.clients[credentials.clientId].scopesGranted);
+    database.tokensToScopes[credentials.token] = scopesGranted;
+
+    // Call back with the actual set of scopes granted.
+    cb(null, scopesGranted);
+
+    // We could also call back with `false` to signal that the requested scopes are invalid, unknown, or mismatched with
+    // the given credentials. Or we could call back with an error for an internal server error situation.
+};
+
 exports.authenticateToken = function (token, req, cb) {
     if (_.has(database.tokensToClientIds, token)) {
-        // If the token authenticates, set the corresponding property on the request, and call back with `true`.
+        // If the token authenticates, set the corresponding properties on the request, and call back with `true`.
         // The routes can now use these properties to check if the request is authorized and authenticated.
         req.clientId = database.tokensToClientIds[token];
+        req.scopesGranted = database.tokensToScopes[token];
         return cb(null, true);
     }
 
