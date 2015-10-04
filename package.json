@@ -11,12 +11,8 @@
         "authentication",
         "api"
     ],
-    "version": "2.2.1",
-    "author": {
-        "name": "Domenic Denicola",
-        "email": "domenic@domenicdenicola.com",
-        "url": "http://domenicdenicola.com"
-    },
+    "version": "4.0.3-oauthd",
+    "author": "Domenic Denicola <domenic@domenicdenicola.com> (http://domenic.me/)",
     "contributors": [
         "OAuth.io Team <team@oauth.io> (https://oauth.io/)"
     ],
@@ -42,17 +38,17 @@
         "underscore": "1.x"
     },
     "peerDependencies": {
-        "restify": "2.x"
+        "restify": "3.x"
     },
     "devDependencies": {
-        "api-easy": ">= 0.3.8",
-        "coffee-script": ">= 1.6.2",
-        "chai": ">= 1.6.0",
-        "jshint": ">= 2.1.2",
-        "mocha": ">= 1.9.0",
-        "restify": ">= 2.5.1",
-        "sinon": ">= 1.7.2",
-        "sinon-chai": ">= 2.4.0",
-        "vows": ">= 0.7.0"
+        "api-easy": "^0.4.0",
+        "chai": "^1.10.0",
+        "coffee-script": "^1.6.3",
+        "jshint": "^2.4.4",
+        "mocha": "^1.17.1",
+        "restify": "^3.0.2",
+        "sinon": "^1.14.1",
+        "sinon-chai": "^2.7.0",
+        "vows": "^0.8.1"
     }
 }
