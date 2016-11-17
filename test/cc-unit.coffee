@@ -63,7 +63,8 @@ beforeEach ->
     @pluginNext = sinon.spy()
 
     @server =
-        post: sinon.spy((path, handler) => @postToTokenEndpoint = => handler(@req, @res, @tokenNext))
+        post: sinon.spy((path, middleware, handler) => @postToTokenEndpoint = => middleware(@req, @res, => handler(@req, @res, @tokenNext)))
+        opts: sinon.spy((path, middleware, handler) => @optsToTokenEndpoint = => middleware(@req, @res, => handler(@req, @res, @tokenNext)))
         use: (plugin) => plugin(@req, @res, @pluginNext)
 
     @authenticateToken = sinon.stub()
@@ -232,19 +233,19 @@ describe "Client Credentials flow", ->
                     describe "when `grantClientToken` calls back with `false`", ->
                         beforeEach -> @grantClientToken.yields(null, false)
 
-                        it "should send a 401 response with error_type=invalid_client", ->
+                        it "should send a 403 response with error_type=invalid_client", ->
                             @doIt()
 
-                            @res.should.be.an.oauthError("Unauthorized", "invalid_client",
+                            @res.should.be.an.oauthError("Forbidden", "invalid_client",
                                                          "Client ID and secret did not authenticate.")
 
                     describe "when `grantClientToken` calls back with `null`", ->
                         beforeEach -> @grantClientToken.yields(null, null)
 
-                        it "should send a 401 response with error_type=invalid_client", ->
+                        it "should send a 403 response with error_type=invalid_client", ->
                             @doIt()
 
-                            @res.should.be.an.oauthError("Unauthorized", "invalid_client",
+                            @res.should.be.an.oauthError("Forbidden", "invalid_client",
                                                          "Client ID and secret did not authenticate.")
 
                     describe "when `grantClientToken` calls back with an error", ->

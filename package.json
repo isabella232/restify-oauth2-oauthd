@@ -32,6 +32,7 @@
     "test-cc-unit": "mocha test/cc-unit.coffee --reporter spec --compilers coffee:coffee-script/register",
     "test-ropc-integration": "vows test/ropc-integration.coffee --spec",
     "test-cc-integration": "vows test/cc-integration.coffee --spec",
+    "test-cc-with-scopes-integration": "vows test/cc-with-scopes-integration.coffee --spec",
     "lint": "jshint lib && jshint examples"
   },
   "dependencies": {
@@ -46,7 +47,7 @@
     "coffee-script": "^1.9.3",
     "jshint": "^2.8.0",
     "mocha": "^2.2.5",
-    "restify": "^4.0",
+    "restify": "^4.3.0",
     "sinon": "^1.16.1",
     "sinon-chai": "^2.8.0",
     "vows": "^0.8.1"

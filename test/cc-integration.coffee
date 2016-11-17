@@ -64,7 +64,7 @@ suite
             .setHeader("Authorization", "Basic MTIzOjQ1Ng==")
             .setHeader("Content-Type", "application/json")
             .post({ grant_type: "client_credentials" })
-                .expect(401)
+                .expect(403)
                 .expect("should respond with error: invalid_client", (err, res, body) ->
                     JSON.parse(body).should.have.property("error", "invalid_client")
                 )

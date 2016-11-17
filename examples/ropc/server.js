@@ -9,7 +9,7 @@ var hooks = require("./hooks");
 
 var server = restify.createServer({
     name: "Example Restify-OAuth2 Resource Owner Password Credentials Server",
-    version: require("../../package.json").version,
+    version: require("../../package.json").version.replace(/-?.*$/, ""),
     formatters: {
         "application/hal+json": function (req, res, body, cb) {
             return res.formatters["application/json"](req, res, body, cb);
@@ -83,4 +83,4 @@ server.post('/close', function(req, res){
     server.close();
 });
 
-server.listen(8080);
+server.listen(8080)

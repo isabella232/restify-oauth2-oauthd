@@ -63,7 +63,8 @@ beforeEach ->
     @pluginNext = sinon.spy()
 
     @server =
-        post: sinon.spy((path, handler) => @postToTokenEndpoint = => handler(@req, @res, @tokenNext))
+        post: sinon.spy((path, middleware, handler) => @postToTokenEndpoint = => middleware(@req, @res, => handler(@req, @res, @tokenNext)))
+        opts: sinon.spy((path, middleware, handler) => @optsToTokenEndpoint = => middleware(@req, @res, => handler(@req, @res, @tokenNext)))
         use: (plugin) => plugin(@req, @res, @pluginNext)
 
     @authenticateToken = sinon.stub()
@@ -113,6 +114,7 @@ describe "Resource Owner Password Credentials flow", ->
             baseDoIt = @doItBase
             @doIt = =>
                 baseDoIt()
+                @optsToTokenEndpoint()
                 @postToTokenEndpoint()
 
         describe "with a body", ->
@@ -164,6 +166,7 @@ describe "Resource Owner Password Credentials flow", ->
                                             baseDoIt = @doItWithScopes
                                             @doIt = =>
                                                 baseDoIt()
+                                                @optsToTokenEndpoint()
                                                 @postToTokenEndpoint()
                                             @requestedScopes = ["one", "two"]
                                             @req.body.scope = @requestedScopes.join(" ")
