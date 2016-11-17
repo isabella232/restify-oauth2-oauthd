@@ -1,54 +1,54 @@
 {
-    "name": "restify-oauth2-oauthd",
-    "description": "A simple OAuth 2 endpoint for Restify + OAuth.io modifications",
-    "keywords": [
-        "restify",
-        "oauth",
-        "oauthd",
-        "oauth.io",
-        "oauth2",
-        "rest",
-        "authentication",
-        "api"
-    ],
-    "version": "4.0.3-oauthd",
-    "author": "Domenic Denicola <domenic@domenicdenicola.com> (http://domenic.me/)",
-    "contributors": [
-        "OAuth.io Team <team@oauth.io> (https://oauth.io/)"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:oauth-io/restify-oauth2-oauthd"
-    },
-    "bugs": {
-        "url": "http://github.com/oauth-io/restify-oauth2-oauthd/issues",
-        "email": "team+bugs@oauth.io"
-    },
-    "license": "WTFPL",
-    "main": "lib/index.js",
-    "scripts": {
-        "test": "npm run test-ropc-unit && npm run test-cc-unit && npm run test-ropc-integration && npm run test-cc-integration",
-        "test-ropc-unit": "mocha test/ropc-unit.coffee --reporter spec --compilers coffee:coffee-script",
-        "test-cc-unit": "mocha test/cc-unit.coffee --reporter spec --compilers coffee:coffee-script",
-        "test-ropc-integration": "vows test/ropc-integration.coffee --spec",
-        "test-cc-integration": "vows test/cc-integration.coffee --spec",
-        "lint": "jshint lib && jshint examples"
-    },
-    "dependencies": {
-        "underscore": "1.x"
-    },
-    "peerDependencies": {
-        "restify": "3.x"
-    },
-    "devDependencies": {
-        "api-easy": "^0.4.0",
-        "chai": "^1.10.0",
-        "coffee-script": "^1.6.3",
-        "jshint": "^2.4.4",
-        "mocha": "^1.17.1",
-        "restify": "^3.0.2",
-        "sinon": "^1.14.1",
-        "sinon-chai": "^2.7.0",
-        "vows": "^0.8.1"
-    }
+  "name": "restify-oauth2-oauthd",
+  "description": "A simple OAuth 2 endpoint for Restify + OAuth.io modifications",
+  "keywords": [
+    "restify",
+    "oauth",
+    "oauthd",
+    "oauth.io",
+    "oauth2",
+    "rest",
+    "authentication",
+    "api"
+  ],
+  "version": "4.0.3-oauthd",
+  "author": "Domenic Denicola <domenic@domenicdenicola.com> (http://domenic.me/)",
+  "contributors": [
+    "OAuth.io Team <team@oauth.io> (https://oauth.io/)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:oauth-io/restify-oauth2-oauthd"
+  },
+  "bugs": {
+    "url": "http://github.com/oauth-io/restify-oauth2-oauthd/issues",
+    "email": "team+bugs@oauth.io"
+  },
+  "license": "WTFPL",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "npm run test-ropc-unit && npm run test-cc-unit && npm run test-ropc-integration && npm run test-cc-integration",
+    "test-ropc-unit": "mocha test/ropc-unit.coffee --reporter spec --compilers coffee:coffee-script",
+    "test-cc-unit": "mocha test/cc-unit.coffee --reporter spec --compilers coffee:coffee-script",
+    "test-ropc-integration": "vows test/ropc-integration.coffee --spec",
+    "test-cc-integration": "vows test/cc-integration.coffee --spec",
+    "lint": "jshint lib && jshint examples"
+  },
+  "dependencies": {
+    "underscore": "1.x"
+  },
+  "peerDependencies": {
+    "restify": "3.x"
+  },
+  "devDependencies": {
+    "api-easy": "^0.4.0",
+    "chai": "^1.10.0",
+    "coffee-script": "^1.6.3",
+    "jshint": "^2.4.4",
+    "mocha": "^1.17.1",
+    "restify": "^3.0.2",
+    "sinon": "^1.14.1",
+    "sinon-chai": "^2.7.0",
+    "vows": "^0.8.1"
+  }
 }
