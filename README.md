@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/oauth-io/restify-oauth2-oauthd.svg?branch=develop)](https://travis-ci.org/oauth-io/restify-oauth2-oauthd)
+
 # OAuth 2 Endpoints for Restify + OAuth.io modifications
 
 This package provides a *very simple* OAuth 2.0 endpoint for the [Restify][] framework. In particular, it implements
